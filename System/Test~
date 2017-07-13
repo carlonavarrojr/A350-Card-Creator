@@ -1,0 +1,60 @@
+#!/bin/bash
+
+pathtoOutput="../Output/"
+
+#################################################
+# Read TCRef.csv and additionally add to the Output Cards the AMM body from AMMTASK.SGM
+#################################################
+echo -e "Attaching AMM References"
+
+cat "TCRef.csv" | sed 's/"//g'| while IFS=, read -r f0 f1 f2;
+	do
+	grep "KEY=\"EN$f2" ./AMMTASK.SGM >"$pathtoOutput/$f1.sgm"
+	echo "</TCBODY>" >> "$pathtoOutput/$f1.sgm"
+	echo -e "\t$pathtoOutput/$f1.sgm"
+done
+
+#################################################
+# Redo All of the Output Files to include Sign Offs
+#################################################
+
+echo -e "Writing Sign Offs"
+
+ls $pathtoOutput*.sgm | while read -r filename;
+	do
+	{ 
+	cat $filename | sed 's#</SUBTASK>#\n<SO ID="1"></SO>\n</SUBTASK>#g' 
+	} > tmpfile
+	mv tmpfile $filename
+	echo -e "\t$filename"
+
+done
+
+#################################################
+# Attach Graphic References
+#################################################
+
+echo -e "Attaching Graphic References"
+
+
+ls $pathtoOutput*.sgm | while read -r filename; 
+	do
+	result=$(grep -o "GNBR=\"[^\"]*\"" "$filename")
+	echo -e "\t$filename,$result"
+	if [ "$result" != "" ] 
+		then
+			echo -e "$result" | while read -r graphics;
+				do
+			grep "$result" ./AMMGRAPHIC.SGM >> "tmpfile"
+				done
+			cat "tmpfile" | sort -u > "tmpfile2"
+			rm "tmpfile"
+			cat "tmpfile2" >> "$filename"
+		fi
+	echo -e "</TASKCARD>" >> "$filename"
+
+done
+
+
+
+

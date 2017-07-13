@@ -1,0 +1,109 @@
+#!/bin/bash
+#!/usr/bin/env Rscript
+
+#################################################
+# ask for data (paths of AMM, MS, and Output Files.
+# check that these are valid paths
+#################################################
+
+#pathtoAMM="../AMM/"
+pathtoMS="../350.xls"
+pathtoOutput="../Output/"
+
+
+# AMM.SGM
+echo -e "Welcome to the Remake of JITCG \" Justin's Initial Task Card Generator"
+#echo -e "Enter path of the AMM pdf files (e.g. ../AMM/)"
+#read -e result
+#	if [ "$result" != "" ]
+#	then
+#	pathtoAMM=$result
+#	fi
+#if [ ! -d "$pathtoAMM" ];
+#then
+#   echo "Invalid AMM folder"
+#   exit
+#fi
+
+# MS File
+echo -e "Enter path of the MS Excel file (e.g. ./MS.xls)"
+read -e result
+	if [ "$result" != "" ]
+	then
+	pathtoMS=$result
+	fi
+if [ ! -f "$pathtoMS" ];
+then
+   echo "Invalid MS file."
+   exit
+fi
+
+# Output Directory
+echo -e "Enter path of the Output Files (e.g. ../Output/)"
+read -e result
+	if [ "$result" != "" ]
+	then
+	pathtoOutput=$result
+	fi
+if [ ! -d "$pathtoOutput" ];
+then
+   echo "Invalid Output folder."
+   exit
+fi
+
+# Put variables to var.txt so that it will be usable by the R script JITCG.R
+printf "\"pathtoMS\",\"pathtoOutput\"\n" > var.txt
+printf "\"$pathtoMS\",\"$pathtoOutput\"\n" >> var.txt
+
+#################################################
+# Run JITCG.R to create the Initial Output Cards and the TCRef.csv
+#################################################
+
+echo -e "Running R Script: Creating Header for Task Cards"
+###########Insert R Code Here	
+Rscript ./CreateBaseCards.R
+
+
+#################################################
+# Read TCRef.csv and additionally add to the Output Cards the AMM body from AMMTASK.SGM
+#################################################
+echo -e "Attaching Cover Page"
+
+cat "TCRef.csv" | sed 's/"//g'| while IFS=, read -r f1 f2;
+	do
+	if [ "$f2" != "" ] 
+		then
+		# divide f2 to different chapter numbers.
+		chapnbr=${f2:0:2}
+		sectnbr=${f2:2:2}
+		subjnbr=${f2:4:2}
+		func=${f2:6:3}
+		seq=${f2:9:3}
+		ammref=`echo -e "$chapnbr-$sectnbr-$subjnbr-$func-$seq"`
+		echo Reference is : $ammref
+		cat SampleCard.sgm | sed "s/#CHAPNBR#/$chapnbr/" | sed "s/#SECTNBR#/$sectnbr/" | sed "s/#SUBJNBR#/$subjnbr/" | sed "s/#FUNC#/$func/" | sed "s/#SEQ#/$seq/" | sed "s/#KEY#/$f2/" > sample_$f1.sgm
+		cat sample_$f1.sgm >> "$pathtoOutput/$f1.sgm"		
+		fi
+		echo "</TCBODY>" >> "$pathtoOutput/$f1.sgm"
+		echo -e "\t$pathtoOutput$f1.sgm"
+		rm sample_$f1.sgm
+done 
+
+
+#################################################
+# Attach Graphic References
+#################################################
+
+echo -e "Attaching pdf AMM References"
+
+#bad to assume to work on all sgm files	
+cat "TCRef.csv" | sed 's/"//g'| while IFS=, read -r f1 f2;
+	do
+		echo "<PDFATTACH>$f2.pdf</PDFATTACH>" >> "$pathtoOutput/$f1.sgm"
+	echo -e "</TASKCARD>" >> "$pathtoOutput/$f1.sgm"
+
+done
+
+rm TCRef.csv
+
+
